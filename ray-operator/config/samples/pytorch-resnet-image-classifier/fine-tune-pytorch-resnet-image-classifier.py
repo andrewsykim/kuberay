@@ -9,6 +9,9 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, models, transforms
 import numpy as np
 
+from datasets import load_dataset
+
+import ray
 import ray.train as train
 from ray.train.torch import TorchTrainer
 from ray.train import ScalingConfig, RunConfig, CheckpointConfig, Checkpoint
@@ -33,6 +36,42 @@ data_transforms = {
         ]
     ),
 }
+
+train_transforms = transforms.Compose(
+    [
+        transforms.RandomResizedCrop(224),  # Added for training
+        transforms.RandomHorizontalFlip(),  # Added for training
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        ),
+    ]
+)
+
+validation_transforms = transforms.Compose(
+    [
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        ),
+    ]
+)
+
+# 3. Transform Images (Distributedly with Ray Data)
+def apply_transforms_train(batch):
+    transformed_images = []
+    for image in batch["image"]:
+        transformed_images.append(train_transforms(image))
+    return {"image": transformed_images, "label": batch["label"]}
+
+# 3. Transform Images (Distributedly with Ray Data)
+def apply_transforms_validation(batch):
+    transformed_images = []
+    for image in batch["image"]:
+        transformed_images.append(validation_transforms(image))
+    return {"image": transformed_images, "label": batch["label"]}
 
 def download_datasets():
     os.system(
@@ -83,20 +122,30 @@ def train_loop_per_worker(configs):
     worker_batch_size = configs["batch_size"]
 
     # Download dataset once on local rank 0 worker
-    if train.get_context().get_local_rank() == 0:
-        download_datasets()
+    # if train.get_context().get_local_rank() == 0:
+    #   download_datasets()
     torch.distributed.barrier()
 
     # Build datasets on each worker
-    torch_datasets = build_datasets()
+    # torch_datasets = build_datasets()
+
+    datasets = load_dataset("cifar10")
+    train_dataset = ray.data.from_huggingface(datasets["train"])
+    validation_dataset = ray.data.from_huggingface(datasets["test"])
+
+    transformed_train_dataset = train_dataset.map_batches(apply_transforms_train, batch_size=32)
+    transformed_validation_dataset = validation_dataset.map_batches(apply_transforms_validation, batch_size=32)
+
+    train_torch_dataset = transformed_train_dataset.to_torch(label_column="label", feature_columns=["img"])
+    validation_torch_dataset = transformed_validation_dataset.to_torch(label_column="label", feature_columns=["img"])
 
     # Prepare dataloader for each worker
     dataloaders = dict()
     dataloaders["train"] = DataLoader(
-        torch_datasets["train"], batch_size=worker_batch_size, shuffle=True
+        train_torch_dataset, batch_size=worker_batch_size, shuffle=True
     )
     dataloaders["val"] = DataLoader(
-        torch_datasets["val"], batch_size=worker_batch_size, shuffle=False
+        train_torch_dataset, batch_size=worker_batch_size, shuffle=False
     )
 
     # Distribute
@@ -195,7 +244,7 @@ def train_loop_per_worker(configs):
 if __name__ == "__main__":
     num_workers = int(os.environ.get("NUM_WORKERS", "4"))
     scaling_config = ScalingConfig(
-        num_workers=num_workers, use_gpu=True, resources_per_worker={"CPU": 1, "GPU": 1}
+        num_workers=num_workers, use_gpu=False, resources_per_worker={"CPU": 8}
     )
 
     checkpoint_config = CheckpointConfig(num_to_keep=3)

@@ -5,7 +5,7 @@ kind: RayJob
 metadata:
   generateName: pytorch-image-classifier-
 spec:
-  shutdownAfterJobFinishes: true
+  shutdownAfterJobFinishes: false
   entrypoint: python ray-operator/config/samples/pytorch-resnet-image-classifier/fine-tune-pytorch-resnet-image-classifier.py
   runtimeEnvYAML: |
     pip:
@@ -14,7 +14,7 @@ spec:
       - torch
       - torchvision
       - transformers>=4.19.1
-    working_dir: "https://github.com/ray-project/kuberay/archive/master.zip"
+    working_dir: "https://github.com/andrewsykim/kuberay/archive/pytorch-lightning-image-classifer-cpu.zip"
   rayClusterSpec:
     rayVersion: '2.9.0'
     headGroupSpec:
@@ -31,7 +31,7 @@ spec:
           serviceAccountName: pytorch-distributed-training
           containers:
             - name: ray-head
-              image: rayproject/ray:2.9.0
+              image: rayproject/ray-ml:2.9.0-gpu
               env:
               - name: NUM_WORKERS
                 value: "4"
@@ -44,11 +44,10 @@ spec:
                   name: client
               resources:
                 limits:
-                  cpu: "1"
-                  memory: "8G"
+                  memory: "16G"
                 requests:
                   cpu: "1"
-                  memory: "8G"
+                  memory: "16G"
               volumeMounts:
                 - mountPath: /tmp/ray
                   name: ray-logs
@@ -61,7 +60,7 @@ spec:
               csi:
                 driver: gcsfuse.csi.storage.gke.io
                 volumeAttributes:
-                  bucketName: GCS_BUCKET
+                  bucketName: andrewsy-gke-bucket
                   mountOptions: "implicit-dirs,uid=1000,gid=100"
     workerGroupSpecs:
       - replicas: 4
@@ -90,12 +89,12 @@ spec:
                       command: [ "/bin/sh","-c","ray stop" ]
                 resources:
                   limits:
-                    memory: "8G"
-                    nvidia.com/gpu: "1"
+                    memory: "32G"
+                    # nvidia.com/gpu: "1"
                   requests:
-                    cpu: "1"
-                    memory: "8G"
-                    nvidia.com/gpu: "1"
+                    cpu: "12"
+                    memory: "32G"
+                    # nvidia.com/gpu: "1"
                 volumeMounts:
                   - mountPath: /tmp/ray
                     name: ray-logs
@@ -108,5 +107,5 @@ spec:
                 csi:
                   driver: gcsfuse.csi.storage.gke.io
                   volumeAttributes:
-                    bucketName: GCS_BUCKET
+                    bucketName: andrewsy-gke-bucket
                     mountOptions: "implicit-dirs,uid=1000,gid=100"
