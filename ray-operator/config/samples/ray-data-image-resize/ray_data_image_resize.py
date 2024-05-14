@@ -14,7 +14,8 @@ def main():
     ray.init()
     dataset = ray.data.read_images(DATA_URI, include_paths=True)
     dataset = dataset.map(transform_frame)
-    # dataset = dataset.select_columns(["path"])
+    print(dataset.schema())
+    dataset = dataset.select_columns(["path"])
     dataset_iter = dataset.iter_batches(batch_size=None)
     for _ in dataset_iter:
         pass
