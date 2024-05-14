@@ -31,10 +31,10 @@ spec:
               resources:
                 limits:
                   cpu: "2"
-                  memory: "4Gi"
+                  memory: "20Gi"
                 requests:
                   cpu: "2"
-                  memory: "4Gi"
+                  memory: "20Gi"
     workerGroupSpecs:
       - replicas: 4
         minReplicas: 1
@@ -50,7 +50,7 @@ spec:
                 resources:
                   limits:
                     cpu: "2"
-                    memory: "4Gi"
+                    memory: "20Gi"
                   requests:
                     cpu: "2"
-                    memory: "4Gi"
+                    memory: "20Gi"
