@@ -1,26 +1,29 @@
 apiVersion: ray.io/v1
 kind: RayService
 metadata:
-  name: llama-3-8b
+  name: deepseek-r1
 spec:
   serveConfigV2: |
     applications:
-    - name: llm
-      route_prefix: /
-      import_path:  ray-operator.config.samples.vllm.serve:model
-      deployments:
-      - name: VLLMDeployment
-        num_replicas: 1
-        ray_actor_options:
-          num_cpus: 8
-          # NOTE: num_gpus is set automatically based on TENSOR_PARALLELISM
-      runtime_env:
-        working_dir: "https://github.com/ray-project/kuberay/archive/master.zip"
-        pip: ["vllm==0.6.1.post2"]
-        env_vars:
-          MODEL_ID: "meta-llama/Meta-Llama-3-8B-Instruct"
-          TENSOR_PARALLELISM: "2"
-          PIPELINE_PARALLELISM: "1"
+    - args:
+        llm_configs:
+          - model_loading_config:
+              model_id: deepseek
+              model_source: deepseek-ai/DeepSeek-R1
+            accelerator_type: H100
+            engine_kwargs:
+              tensor_parallel_size: 8,
+              pipeline_parallel_size: 1,
+              gpu_memory_utilization: 0.92,
+              dtype: auto,
+              max_num_seqs": 40,
+              max_model_len": 16384,
+              enable_chunked_prefill: true,
+              enable_prefix_caching: true,
+              trust_remote_code: true,
+      import_path: ray-operator.config.samples.vllm.llm:model
+      name: llm
+      route_prefix: "/"
   rayClusterConfig:
     headGroupSpec:
       rayStartParams:
