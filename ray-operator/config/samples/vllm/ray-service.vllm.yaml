@@ -12,18 +12,21 @@ spec:
               model_source: deepseek-ai/DeepSeek-R1
             accelerator_type: H100
             engine_kwargs:
-              tensor_parallel_size: 8,
-              pipeline_parallel_size: 1,
-              gpu_memory_utilization: 0.92,
-              dtype: auto,
-              max_num_seqs": 40,
-              max_model_len": 16384,
-              enable_chunked_prefill: true,
-              enable_prefix_caching: true,
-              trust_remote_code: true,
+              tensor_parallel_size: 8
+              pipeline_parallel_size: 1
+              gpu_memory_utilization: 0.92
+              dtype: auto
+              max_num_seqs: 40
+              max_model_len: 16384
+              enable_chunked_prefill: true
+              enable_prefix_caching: true
+              trust_remote_code: true
       import_path: ray-operator.config.samples.vllm.llm:model
       name: llm
       route_prefix: "/"
+      runtime_env:
+        working_dir: "https://github.com/ray-project/kuberay/archive/master.zip"
+        pip: ["vllm==0.6.1.post2"]
   rayClusterConfig:
     headGroupSpec:
       rayStartParams:
@@ -32,7 +35,7 @@ spec:
         spec:
           containers:
           - name: ray-head
-            image: rayproject/ray-ml:2.33.0.914af0-py311
+            image: rayproject/ray-ml:2.44.1.daca7b-py310-gpu
             resources:
               limits:
                 cpu: "2"
@@ -55,8 +58,8 @@ spec:
       template:
         spec:
           containers:
-          - name: llm
-            image: rayproject/ray-ml:2.33.0.914af0-py311
+          - name: ray-worker
+            image: rayproject/ray-ml:2.44.1.daca7b-py310-gpu
             env:
             - name: HUGGING_FACE_HUB_TOKEN
               valueFrom:
